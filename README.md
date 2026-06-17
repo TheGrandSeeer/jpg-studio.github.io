@@ -1,1 +1,1 @@
-# jpg-studio.github.io
+# https://de-jpg.github.io/TheArchive/
