@@ -8,4 +8,5 @@ to-do
 -add covers and 2-3 of the best pages  
 -add admin page to keep track of books loaned  
 -link the loan button to the books that have been loaned  
+-books that are loaned should be gray and have a red dot on the top right of the spine and cover  
 -fix spine animation  
