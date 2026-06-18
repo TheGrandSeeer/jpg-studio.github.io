@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>jo's library</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{width:100%;height:100%;background:#000;overflow-x:hidden;}
@@ -90,18 +91,30 @@ h1{font-size:10px;letter-spacing:0.2em;color:#333;text-transform:lowercase;margi
 .cat-pill:hover,.cat-pill.active{border-color:rgba(255,255,255,0.42);color:rgba(255,255,255,0.78);}
 #clearFilter{background:transparent;border:none;color:rgba(255,255,255,0.2);font-family:'Courier New',monospace;font-size:9px;cursor:pointer;letter-spacing:0.1em;padding:2px 0;display:none;text-decoration:underline;}
 #clearFilter.show{display:inline;}
-#resultsGrid{display:none;width:100vw;background:#000;padding:2rem clamp(20px,5vw,80px);flex-wrap:wrap;gap:0;justify-content:center;margin-top:1rem;}
+/* Results grid wrapper — rows stack naturally */
+#resultsGrid{display:none;width:100vw;background:transparent;padding:2rem clamp(24px,6vw,80px) 4rem;flex-direction:column;align-items:center;gap:0;margin-top:0.6rem;}
 #resultsGrid.open{display:flex;}
+.result-row{display:flex;flex-wrap:wrap;justify-content:center;gap:0;width:100%;position:relative;align-items:flex-end;}
+/* The single shared bar runs underneath ALL covers in a row */
+.result-shelf-bar{width:100%;height:4px;background:#fff;opacity:0.12;margin-bottom:3rem;flex-shrink:0;}
 
 /* Explore grid - cover view */
-.result-book{display:flex;flex-direction:column;align-items:center;cursor:pointer;width:90px;}
-.result-cover{width:90px;height:130px;border-radius:1px 3px 3px 1px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:10px 8px 8px;position:relative;overflow:hidden;transition:transform 0.18s ease,box-shadow 0.18s ease;}
-.result-cover:hover{transform:translateY(-6px) scale(1.03);box-shadow:0 12px 28px rgba(0,0,0,0.6);}
-.result-cover-spine{position:absolute;left:0;top:0;width:8px;height:100%;border-radius:1px 0 0 1px;}
-.result-cover-title{font-size:8px;color:rgba(255,255,255,0.88);font-family:'Courier New',monospace;text-align:center;line-height:1.35;position:relative;z-index:1;}
-.result-cover-author{font-size:7px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;text-align:center;margin-top:4px;position:relative;z-index:1;}
-.result-bar{width:90px;height:4px;margin:0;} /* no gap, flush */
-.result-label{font-size:7.5px;color:rgba(255,255,255,0.35);font-family:'Courier New',monospace;text-align:center;line-height:1.4;max-width:90px;padding:5px 2px 0;}
+.result-book{display:flex;flex-direction:column;align-items:center;cursor:pointer;width:120px;margin:0 clamp(12px,2.5vw,32px);}
+.result-cover{
+  width:120px;height:175px;
+  border-radius:1px 5px 5px 1px;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding:12px 10px 10px;position:relative;overflow:hidden;
+  transition:transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94),box-shadow 0.28s ease;
+  box-shadow:0 4px 18px rgba(0,0,0,0.5);
+}
+.result-cover:hover{transform:translateY(-10px) scale(1.05);box-shadow:0 20px 40px rgba(0,0,0,0.75);}
+.result-cover-spine{position:absolute;left:0;top:0;width:11px;height:100%;border-radius:1px 0 0 1px;}
+.result-cover-img{position:absolute;inset:0;object-fit:cover;width:100%;height:100%;border-radius:1px 5px 5px 1px;opacity:0;transition:opacity 0.3s ease;}
+.result-cover-img.loaded{opacity:1;}
+.result-cover-title{font-size:9px;color:rgba(255,255,255,0.9);font-family:'Courier New',monospace;text-align:center;line-height:1.4;position:relative;z-index:1;}
+.result-cover-author{font-size:7.5px;color:rgba(255,255,255,0.45);font-family:'Courier New',monospace;text-align:center;margin-top:5px;position:relative;z-index:1;}
+.result-label{font-size:7.5px;color:rgba(255,255,255,0.3);font-family:'Courier New',monospace;text-align:center;line-height:1.5;max-width:120px;padding:6px 2px 0;}
 
 /* LOAN MODAL */
 #loanModal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.93);align-items:center;justify-content:center;}
@@ -118,21 +131,38 @@ h1{font-size:10px;letter-spacing:0.2em;color:#333;text-transform:lowercase;margi
 .loan-cancel{background:transparent;border:1px solid rgba(255,255,255,0.06);color:rgba(255,255,255,0.22);font-family:'Courier New',monospace;font-size:10px;padding:9px 12px;border-radius:1px;cursor:pointer;}
 .loan-error{font-size:10px;color:#a06060;font-family:'Courier New',monospace;margin-top:4px;min-height:14px;}
 
+/* Smooth scroll for whole page */
+html{scroll-behavior:smooth;}
+
+/* Mobile cover title: hidden by default, revealed on touch */
+@media (max-width:600px){
+  .cover-book-title,.cover-book-author{
+    opacity:0;transition:opacity 0.3s ease;
+  }
+  .cover-book-title.touch-visible,.cover-book-author.touch-visible{
+    opacity:1;
+  }
+}
+
 /* MOBILE: selected book layout */
 @media (max-width:600px){
-  #bookContainer{left:50%!important;transform:translateX(-50%)!important;top:auto!important;}
+  #bookContainer{
+    position:fixed!important;
+    left:50%!important;
+    transform:translateX(-50%)!important;
+    top:10vh!important;
+  }
   #infoPanel{
     position:fixed!important;
     left:0!important;right:0!important;width:100vw!important;
     bottom:0!important;top:auto!important;
     padding:18px 22px 28px!important;
     background:linear-gradient(to top,rgba(0,0,0,0.97) 80%,transparent)!important;
-    transform:none!important;
-    max-height:45vh;overflow-y:auto;
+    transform:translateY(20px)!important;
+    max-height:48vh;overflow-y:auto;
   }
-  #infoPanel.visible{transform:none!important;}
-  .cover-scene,.cover-book{width:160px!important;height:240px!important;}
-  #bookContainer{top:8vh!important;transform:translateX(-50%)!important;}
+  #infoPanel.visible{transform:translateY(0)!important;transition:opacity 0.4s ease,transform 0.4s ease!important;}
+  .cover-scene,.cover-book{width:150px!important;height:224px!important;}
 }
 </style>
 </head>
@@ -209,10 +239,18 @@ h1{font-size:10px;letter-spacing:0.2em;color:#333;text-transform:lowercase;margi
 </div>
 
 <script>
-const VALID_CODES=["JOSLIB01","JOSLIB02","JOSLIB03","JOSLIB04","JOSLIB05","Z26","JX26","YF26","YSF26","SJ26","JO26","IZ26"];
-const WHATSAPP_NUMBER="60123456789";
+// code → display name
+const CODE_NAMES={
+  "z26":"Zachary","jx26":"JennXie","yf26":"YueFoong","ysf26":"Youssef",
+  "sj26":"SJ","jo26":"JO","iz26":"Isaac","smg26:Sofia"
+};
+const VALID_CODES=Object.keys(CODE_NAMES);
+const EMAILJS_PUBLIC="6cQGiB6sXH0jf6gvc";
+const EMAILJS_TEMPLATE="template_vs8ka9l";
+const EMAILJS_SERVICE="service_vu9r8wo"; // update if your service ID differs
 const MAX_LOANS=2;
 const loans={};
+
 
 const CAT_PALETTES={
   "History":  ["#1e2d1e","#243322","#1a2a18","#202e1c","#1c2e1c","#243020"],
@@ -391,7 +429,7 @@ const TARGET_SPEED=0.38;
 const RESUME_DURATION=4000;
 let offsetX=0,paused=false,overlayOpen=false,isClosing=false;
 let resuming=false,resumeStart=null,resumeTimer=null;
-let currentBookId=null,selectedSpineEl=null;
+let currentBookId=null,selectedSpineEl=null,openGen=0;
 let tiltActive=false,baseTilt={x:0,y:0},currentTilt={x:0,y:0};
 let bookRevealed=false,activeFilter=null,searchQuery='';
 
@@ -530,7 +568,7 @@ function isMobile(){return window.innerWidth<=600;}
 function showCover(id,spineEl){
   const book=BOOKS.find(b=>b.id===id);
   if(!book||overlayOpen||isClosing)return;
-  currentBookId=id;selectedSpineEl=spineEl;
+  currentBookId=id;selectedSpineEl=spineEl;openGen++;
   spineEl.classList.add('selected');
   if(book.tilt){spineEl.style.transition='none';spineEl.style.transform='rotate(0deg)';}
   paused=true;resuming=false;overlayOpen=true;bookRevealed=false;isClosing=false;
@@ -602,11 +640,12 @@ function showCover(id,spineEl){
     cb.style.transition='transform 0.7s cubic-bezier(0.4,0,0.2,1)';
     cb.style.transform='scaleX(1) scaleY(1) rotateY(0deg)';
     bc.classList.add('interactive');
-    // Fade in info sooner — at 500ms instead of 800ms
+    // Fade in info — abort immediately if overlay was closed before timer fires
+    const myGen=openGen;
     setTimeout(()=>{
-      if(!overlayOpen)return;
+      if(!overlayOpen||openGen!==myGen)return;
       bookRevealed=true;
-      setTimeout(()=>{if(!overlayOpen)return;info.classList.add('visible');},80);
+      setTimeout(()=>{if(!overlayOpen||openGen!==myGen)return;info.classList.add('visible');},80);
     },500);
   }));
 }
@@ -614,6 +653,8 @@ function showCover(id,spineEl){
 function closeOverlay(){
   if(!overlayOpen||isClosing)return;
   isClosing=true;bookRevealed=false;tiltActive=false;baseTilt={x:0,y:0};currentTilt={x:0,y:0};
+  document.getElementById('coverTitle').classList.remove('touch-visible');
+  document.getElementById('coverAuthor').classList.remove('touch-visible');
   document.getElementById('infoPanel').classList.remove('visible');
   const cb=document.getElementById('coverBook');
   const bc=document.getElementById('bookContainer');
@@ -659,6 +700,13 @@ coverScene.addEventListener('mousemove',e=>{
 });
 coverScene.addEventListener('mouseleave',()=>{tiltActive=false;baseTilt={x:0,y:0};});
 coverScene.addEventListener('click',e=>e.stopPropagation());
+// Mobile: tap cover to reveal title
+coverScene.addEventListener('touchstart',e=>{
+  if(window.innerWidth>600)return;
+  document.getElementById('coverTitle').classList.toggle('touch-visible');
+  document.getElementById('coverAuthor').classList.toggle('touch-visible');
+  e.stopPropagation();
+},{passive:true});
 document.getElementById('infoPanel').addEventListener('click',e=>e.stopPropagation());
 
 document.getElementById('loanBtn').addEventListener('click',()=>{
@@ -668,17 +716,35 @@ document.getElementById('loanBtn').addEventListener('click',()=>{
 });
 document.getElementById('loanCancel').addEventListener('click',()=>document.getElementById('loanModal').classList.remove('active'));
 
-document.getElementById('loanConfirm').addEventListener('click',()=>{
+document.getElementById('loanConfirm').addEventListener('click',async()=>{
   const book=BOOKS.find(b=>b.id===currentBookId);if(!book)return;
-  const code=document.getElementById('codeInput').value.trim().toUpperCase();
+  const rawCode=document.getElementById('codeInput').value.trim().toUpperCase();
   const err=document.getElementById('loanError');
-  if(!VALID_CODES.includes(code)){err.textContent='invalid code.';return;}
-  const ex=loans[code]||[];
+  const btn=document.getElementById('loanConfirm');
+  if(!VALID_CODES.includes(rawCode)){err.textContent='invalid code.';return;}
+  const ex=loans[rawCode]||[];
   if(ex.length>=MAX_LOANS){err.textContent=`code limit reached (${MAX_LOANS}).`;return;}
-  loans[code]=[...ex,currentBookId];
-  const msg=encodeURIComponent(`hi josiah! loan request:\n\nbook: "${book.title}"\ncode: ${code}`);
-  window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`,'_blank');
-  document.getElementById('loanModal').classList.remove('active');
+  const userName=CODE_NAMES[rawCode]||rawCode;
+  btn.textContent='sending...';btn.disabled=true;err.textContent='';
+  try{
+    // Make sure emailjs is initialised (handles deferred load)
+    if(window.emailjs){
+      await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE,{
+        "user-name":userName,
+        "book_name":book.title,
+      });
+    }
+    loans[rawCode]=[...ex,currentBookId];
+    btn.textContent='sent!';
+    setTimeout(()=>{
+      document.getElementById('loanModal').classList.remove('active');
+      btn.textContent='loan';btn.disabled=false;
+    },1400);
+  }catch(e){
+    err.textContent='could not send — try again.';
+    btn.textContent='loan';btn.disabled=false;
+    console.error('EmailJS error:',e);
+  }
 });
 
 // Drag on shelf
@@ -712,7 +778,11 @@ track.addEventListener('touchend',()=>{if(!tDM&&tPI!==null&&tPE)showCover(tPI,tP
 // Explore
 document.getElementById('exploreBtn').addEventListener('click',()=>{
   const p=document.getElementById('explorePanel');p.classList.toggle('open');
-  if(!p.classList.contains('open'))clearExplore();
+  if(p.classList.contains('open')){
+    setTimeout(()=>p.scrollIntoView({behavior:'smooth',block:'nearest'}),60);
+  } else {
+    clearExplore();
+  }
 });
 document.querySelectorAll('.cat-pill').forEach(pill=>{
   pill.addEventListener('click',()=>{
@@ -731,41 +801,57 @@ function clearExplore(){
   document.getElementById('resultsGrid').classList.remove('open');
   document.getElementById('resultsGrid').innerHTML='';
 }
+const BOOKS_PER_ROW=Math.max(4,Math.floor((Math.min(window.innerWidth,900)-80)/100));
+function makeBookCard(book){
+  const el=document.createElement('div');el.className='result-book';
+  const spineColor=darken(book.color,30);
+  const imgPath=book.image?`covers/${book.image}`:'';
+  el.innerHTML=`
+    <div class="result-cover" style="background:${book.color};">
+      <div class="result-cover-spine" style="background:${spineColor};"></div>
+      ${imgPath?`<img class="result-cover-img" src="${imgPath}" alt="" onload="this.classList.add('loaded')" onerror="this.style.display='none'">`:''}
+      <div class="cover-deco" style="width:36px;height:36px;top:10px;opacity:0.09;"><svg viewBox="0 0 60 60" fill="white"><circle cx="30" cy="30" r="22"/><circle cx="30" cy="30" r="13" fill="${book.color}"/></svg></div>
+      <div class="result-cover-title">${book.title}</div>
+      <div class="result-cover-author">${book.author==='N/A'?'':book.author}</div>
+    </div>
+    <div class="result-label">${book.cat}</div>`;
+  el.addEventListener('click',()=>{
+    const spines=[...document.querySelectorAll('.book-spine')];
+    const vpCX=window.innerWidth/2;let bestEl=null,bestDist=Infinity;
+    spines.forEach(s=>{if(parseInt(s.dataset.id)===book.id){const r=s.getBoundingClientRect();const d=Math.abs(r.left+r.width/2-vpCX);if(d<bestDist){bestDist=d;bestEl=s;}}});
+    if(bestEl)showCover(book.id,bestEl);
+  });
+  return el;
+}
 function runFilter(){
   const has=activeFilter||searchQuery;
   document.getElementById('clearFilter').classList.toggle('show',!!has);
-  if(!has){document.getElementById('resultsGrid').classList.remove('open');document.getElementById('resultsGrid').innerHTML='';return;}
+  const grid=document.getElementById('resultsGrid');
+  if(!has){grid.classList.remove('open');grid.innerHTML='';return;}
   const results=BOOKS.filter(b=>{
     const cm=!activeFilter||b.cat===activeFilter;
     const q=searchQuery;
     const tm=!q||(b.title.toLowerCase().includes(q)||b.author.toLowerCase().includes(q)||b.tags.toLowerCase().includes(q)||b.sub.toLowerCase().includes(q));
     return cm&&tm;
   });
-  const grid=document.getElementById('resultsGrid');
   grid.innerHTML='';grid.classList.add('open');
-  results.forEach(book=>{
-    const el=document.createElement('div');el.className='result-book';
-    const spineColor=darken(book.color,30);
-    el.innerHTML=`
-      <div class="result-cover" style="background:${book.color};">
-        <div class="result-cover-spine" style="background:${spineColor};"></div>
-        <div class="cover-deco" style="width:36px;height:36px;top:10px;opacity:0.10;"><svg viewBox="0 0 60 60" fill="white"><circle cx="30" cy="30" r="22"/><circle cx="30" cy="30" r="13" fill="${book.color}"/></svg></div>
-        <div class="result-cover-title">${book.title}</div>
-        <div class="result-cover-author">${book.author==='N/A'?'':book.author}</div>
-      </div>
-      <div class="result-bar" style="background:${book.color};"></div>
-      <div class="result-label">${book.cat}</div>`;
-    el.addEventListener('click',()=>{
-      const spines=[...document.querySelectorAll('.book-spine')];
-      const vpCX=window.innerWidth/2;let bestEl=null,bestDist=Infinity;
-      spines.forEach(s=>{if(parseInt(s.dataset.id)===book.id){const r=s.getBoundingClientRect();const d=Math.abs(r.left+r.width/2-vpCX);if(d<bestDist){bestDist=d;bestEl=s;}}});
-      if(bestEl)showCover(book.id,bestEl);
-    });
-    grid.appendChild(el);
-  });
+  // Build rows — bigger cards (120px + ~64px margins = ~184px each)
+  const perRow=Math.max(3,Math.floor((Math.min(window.innerWidth,1200)-100)/184));
+  for(let i=0;i<results.length;i+=perRow){
+    const chunk=results.slice(i,i+perRow);
+    const rowWrap=document.createElement('div');rowWrap.style.cssText='display:flex;flex-direction:column;align-items:center;width:100%;';
+    const rowEl=document.createElement('div');rowEl.className='result-row';
+    chunk.forEach(book=>rowEl.appendChild(makeBookCard(book)));
+    const bar=document.createElement('div');bar.className='result-shelf-bar';
+    rowWrap.appendChild(rowEl);rowWrap.appendChild(bar);
+    grid.appendChild(rowWrap);
+  }
+  // Smooth scroll to results
+  setTimeout(()=>grid.scrollIntoView({behavior:'smooth',block:'start'}),60);
 }
 
 window.addEventListener('load',()=>{
+  if(window.emailjs)emailjs.init({publicKey:EMAILJS_PUBLIC});
   buildShelf();
   const inner=document.getElementById('shelfInner');
   inner.style.opacity='0';
